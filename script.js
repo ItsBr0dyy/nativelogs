@@ -116,32 +116,27 @@ async function loadBadges(channel) {
     EMOTE + BADGE RENDERING
 --------------------------------------------------- */
 
-function renderBadges(username) {
-    let html = "";
-
-    for (const id in badgesCache) {
-        html += `<img class="badge" src="${badgesCache[id]}">`;
+function renderMessage(msg) {
+    if (!msg.message || typeof msg.message !== "string") {
+        return ""; // ignore system messages with no text
     }
 
-    return html;
-}
-
-function renderMessage(msg) {
     let text = msg.message;
 
-    // Split words
     const parts = text.split(" ").map(word => {
         const lower = word.toLowerCase();
 
         if (sevenTV[lower]) {
-            return `<img class="emote" src="${sevenTV[lower]}">`;
-        }
-        if (ffz[lower]) {
-            return `<img class="emote" src="${ffz[lower]}">`;
+            return `<img class="emote" src="${sevenTV[lower]}" class="emote">`;
         }
 
-        return word; // normal word
+        if (ffz[lower]) {
+            return `<img class="emote" src="${ffz[lower]}" class="emote">`;
+        }
+
+        return word;
     });
 
     return parts.join(" ");
 }
+
