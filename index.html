@@ -1,23 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>Twitch Chat Logs</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="container">
-    <div id="header">
-      <h1>Chat Logs</h1>
-      <div id="inputs">
-        <input id="channel" placeholder="Channel (ex: xqc)" />
-        <input id="user" placeholder="Username (optional)" />
-        <button id="load">Load</button>
-      </div>
-    </div>
-    <div id="chat"></div>
+<div id="container">
+  <h1>Twitch Chat Logs</h1>
+
+  <div id="controls">
+    <input id="channel" placeholder="Channel (ex: xqc)" />
+    <input id="user" placeholder="User (optional)" />
+    <button id="load">Load Logs</button>
   </div>
-  <script src="app.js"></script>
+
+  <div id="chat"></div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
