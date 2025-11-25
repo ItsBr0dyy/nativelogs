@@ -1,4 +1,4 @@
-async function safeFetch(url) {
+async function fetchJSON(url) {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
@@ -8,106 +8,83 @@ async function safeFetch(url) {
   }
 }
 
-async function loadLogs(channel, user) {
-  let url;
-  if (user) {
-    url = `https://logs.ivr.fi/v2/twitch/user/${channel}/${user}?limit=500`;
-  } else {
-    url = `https://logs.ivr.fi/v2/twitch/channel/${channel}?limit=500`;
-  }
-  return safeFetch(url);
+// Convert username → Twitch ID
+async function getTwitchID(username) {
+  const data = await fetchJSON(`https://api.ivr.fi/v2/twitch/user?login=${username}`);
+  if (!data || !data[0]) return null;
+  return data[0].id;
 }
 
-async function loadEmotes(channel) {
+// Load logs using the ID (REQUIRED)
+async function getLogs(channelID, userID) {
+  if (userID) {
+    return fetchJSON(`https://logs.ivr.fi/v2/twitch/user/${userID}?channel=${channelID}&limit=500`);
+  } else {
+    return fetchJSON(`https://logs.ivr.fi/v2/twitch/channel/${channelID}?limit=500`);
+  }
+}
+
+// Load emotes
+async function loadEmotes(channelID) {
   const [seven, bttv, ffz] = await Promise.all([
-    safeFetch(`https://7tv.io/v3/users/twitch/${channel}`),
-    safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${channel}`),
-    safeFetch(`https://api.frankerfacez.com/v1/room/${channel}`)
+    fetchJSON(`https://7tv.io/v3/users/twitch/${channelID}`),
+    fetchJSON(`https://api.betterttv.net/3/cached/users/twitch/${channelID}`),
+    fetchJSON(`https://api.frankerfacez.com/v1/room/id/${channelID}`)
   ]);
 
-  const emoteMap = {};
+  const emotes = {};
 
   // 7TV
-  if (seven && seven.emote_set && seven.emote_set.emotes) {
+  if (seven?.emote_set?.emotes) {
     for (const e of seven.emote_set.emotes) {
-      emoteMap[e.name] = `https://cdn.7tv.app/emote/${e.id}/3x.webp`;
+      emotes[e.name] = `https://cdn.7tv.app/emote/${e.id}/3x.webp`;
     }
   }
 
   // BTTV
   if (bttv) {
-    (bttv.channelEmotes || []).forEach(e => {
-      emoteMap[e.code] = `https://cdn.betterttv.net/emote/${e.id}/3x`;
-    });
-    (bttv.sharedEmotes || []).forEach(e => {
-      emoteMap[e.code] = `https://cdn.betterttv.net/emote/${e.id}/3x`;
+    [...bttv.channelEmotes, ...bttv.sharedEmotes].forEach(e => {
+      emotes[e.code] = `https://cdn.betterttv.net/emote/${e.id}/3x`;
     });
   }
 
   // FFZ
-  if (ffz && ffz.sets) {
-    for (const set of Object.values(ffz.sets)) {
+  if (ffz?.sets) {
+    Object.values(ffz.sets).forEach(set => {
       set.emoticons.forEach(e => {
         const url = e.urls["4"] || e.urls["2"] || e.urls["1"];
-        if (url) emoteMap[e.name] = (url.startsWith("//") ? "https:" + url : url);
+        emotes[e.name] = (url.startsWith("//") ? "https:" + url : url);
       });
-    }
+    });
   }
 
-  return emoteMap;
+  return emotes;
 }
 
-function renderEmotes(text, emoteMap) {
-  if (!text) return "";
-  const words = text.split(/(\s+)/);
-  return words.map(w => {
-    const emoteUrl = emoteMap[w];
-    if (emoteUrl) {
-      return `<img class="emote" src="${emoteUrl}" />`;
-    }
-    return escapeHtml(w);
-  }).join("");
+function renderEmotes(text, emotes) {
+  const parts = text.split(/(\s+)/);
+  return parts.map(word =>
+    emotes[word] ? `<img class="emote" src="${emotes[word]}">` : word
+  ).join("");
 }
 
-function escapeHtml(unsafe) {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-function renderBadges(badges) {
-  if (!badges) return "";
-  return badges.map(b => {
-    return `<img src="${b.url}" title="${b.name}" class="badge" />`;
-  }).join("");
-}
-
-function renderChat(logs, emoteMap) {
+function renderChat(logs, emotes) {
   const chat = document.getElementById("chat");
   chat.innerHTML = "";
 
-  (logs.data || logs).forEach(msg => {
-    const line = document.createElement("div");
-    line.classList.add("chat-line");
+  logs.forEach(msg => {
+    if (!msg.message) return;
 
-    const badgeDiv = document.createElement("div");
-    badgeDiv.classList.add("badges");
-    badgeDiv.innerHTML = renderBadges(msg.badges || []);
+    const div = document.createElement("div");
+    div.className = "chat-line";
 
-    const userSpan = document.createElement("span");
-    userSpan.classList.add("username");
-    userSpan.textContent = msg.username;
+    div.innerHTML = `
+      <div class="badges"></div>
+      <span class="username">${msg.username}:</span>
+      <span class="message">${renderEmotes(msg.message, emotes)}</span>
+    `;
 
-    const messageSpan = document.createElement("span");
-    messageSpan.classList.add("message");
-    messageSpan.innerHTML = renderEmotes(msg.message, emoteMap);
-
-    line.appendChild(badgeDiv);
-    line.appendChild(userSpan);
-    line.appendChild(messageSpan);
-
-    chat.appendChild(line);
+    chat.appendChild(div);
   });
 }
 
@@ -115,20 +92,19 @@ document.getElementById("load").addEventListener("click", async () => {
   const channel = document.getElementById("channel").value.trim().toLowerCase();
   const user = document.getElementById("user").value.trim().toLowerCase();
 
-  if (!channel) {
-    alert("Enter a channel name");
-    return;
-  }
+  if (!channel) return alert("Enter a channel.");
 
-  const [logs, emoteMap] = await Promise.all([
-    loadLogs(channel, user),
-    loadEmotes(channel)
+  const channelID = await getTwitchID(channel);
+  if (!channelID) return alert("Channel not found.");
+
+  const userID = user ? await getTwitchID(user) : null;
+
+  const [logs, emotes] = await Promise.all([
+    getLogs(channelID, userID),
+    loadEmotes(channelID)
   ]);
 
-  if (!logs) {
-    alert("Could not fetch logs");
-    return;
-  }
+  if (!logs) return alert("No logs found.");
 
-  renderChat(logs, emoteMap);
+  renderChat(logs, emotes);
 });
