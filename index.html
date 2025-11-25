@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Chat Logs Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header>
+    <h1>Twitch Chat Logs</h1>
+    <div class="top-controls">
+        <input id="channel" placeholder="Channel (ex: itsbr0dyy)">
+        <button onclick="loadLogs()">Load Logs</button>
+    </div>
+</header>
+
+<main>
+    <div id="logs" class="log-box">
+        <p class="placeholder">Enter a channel to view chat logs.</p>
+    </div>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>
