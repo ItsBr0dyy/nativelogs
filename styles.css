@@ -1,49 +1,60 @@
 body {
+    margin: 0;
     background: #0e0e10;
     color: #fff;
     font-family: Arial, sans-serif;
-    margin: 0;
 }
 
-header {
-    padding: 20px;
-    background: #18181b;
+#container {
+    width: 95%;
+    max-width: 1000px;
+    margin: auto;
+    padding-top: 20px;
+}
+
+#search {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
 }
 
-.top-controls input {
+#search input {
+    flex: 1;
     padding: 10px;
-    border: none;
-    border-radius: 4px;
-    background: #3a3a3d;
+    background: #18181b;
+    border: 1px solid #333;
     color: #fff;
+    border-radius: 5px;
 }
 
-.top-controls button {
-    padding: 10px 15px;
-    margin-left: 8px;
-    background: #9146ff;
+#search button {
+    padding: 10px 20px;
+    background: #9147ff;
     border: none;
-    border-radius: 4px;
     color: white;
+    border-radius: 5px;
     cursor: pointer;
 }
 
-.log-box {
-    padding: 20px;
-    max-width: 900px;
-    margin: 0 auto;
+#chat {
+    margin-top: 20px;
 }
 
-.message {
-    padding: 8px 0;
-    border-bottom: 1px solid #2e2e31;
+.chat-message {
+    padding: 6px 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-user {
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .username {
     font-weight: bold;
+    color: #a970ff;
 }
 
 .emote {
@@ -53,6 +64,4 @@ header {
 
 .badge {
     height: 18px;
-    margin-right: 4px;
-    vertical-align: middle;
 }
