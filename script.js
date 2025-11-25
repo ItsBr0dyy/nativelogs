@@ -1,142 +1,134 @@
-let sevenTV = {};
-let ffz = {};
-let twitchEmotes = {}; // Twitch per-message emotes
-let badgesCache = {};  // Chatterino-style badge system
-
-async function loadLogs() {
-    const channel = document.getElementById("channel").value.trim().toLowerCase();
-    if (!channel) return;
-
-    const logBox = document.getElementById("logs");
-    logBox.innerHTML = "<p>Loading…</p>";
-
-    // Load Emotes First
-    await loadEmotes(channel);
-    await loadBadges(channel);
-
+// ----------------------------------
+// Utility: Fetch JSON with fallback
+// ----------------------------------
+async function safeFetch(url) {
     try {
-        const res = await fetch(`https://recent-messages.robotty.de/api/v2/recent-messages/${channel}`);
-        if (!res.ok) throw new Error("Channel has no logs or API unavailable.");
-
-        const data = await res.json();
-
-        logBox.innerHTML = "";
-
-        data.messages.forEach(msg => {
-            const el = document.createElement("div");
-            el.classList.add("message");
-
-            // Convert emotes in message
-            const htmlMsg = renderMessage(msg);
-
-            el.innerHTML = `
-                ${renderBadges(msg.username)}
-                <span class="username" style="color:${msg.color || '#fff'}">
-                    ${msg.username}
-                </span>:
-                <span>${htmlMsg}</span>
-            `;
-
-            logBox.appendChild(el);
-        });
-
-    } catch (err) {
-        logBox.innerHTML = `<p>Error: ${err.message}</p>`;
+        const res = await fetch(url);
+        if (!res.ok) return null;
+        return await res.json();
+    } catch {
+        return null;
     }
 }
 
-/* ---------------------------------------------------
-    LOAD 7TV + FFZ EMOTES
---------------------------------------------------- */
+// ----------------------------------
+// Load logs from a public log API
+// (This API works like kappa.lol)
+// ----------------------------------
+async function loadLogs(channel, username) {
+    const url = username
+        ? `https://logs.ivr.fi/v2/twitch/user/${channel}/${username}?limit=300`
+        : `https://logs.ivr.fi/v2/twitch/channel/${channel}?limit=300`;
 
+    return safeFetch(url);
+}
+
+// ----------------------------------
+// Load emotes from 7TV, BTTV, FFZ
+// ----------------------------------
 async function loadEmotes(channel) {
-    // 7TV Global
-    const sevenGlobal = await fetch("https://7tv.io/v3/emote-sets/global").then(r => r.json());
-    sevenTV = {};
-    sevenGlobal.emotes.forEach(e => {
-        sevenTV[e.name.toLowerCase()] = `https://cdn.7tv.app/emote/${e.id}/1x.webp`;
-    });
+    const [seventv, bttv, ffz] = await Promise.all([
+        safeFetch(`https://7tv.io/v3/users/twitch/${channel}`),
+        safeFetch(`https://api.betterttv.net/3/cached/users/twitch/${channel}`),
+        safeFetch(`https://api.frankerfacez.com/v1/room/${channel}`)
+    ]);
 
-    // 7TV Channel
-    try {
-        const sevenUser = await fetch(`https://7tv.io/v3/users/twitch/${channel}`).then(r => r.json());
-        if (sevenUser.emote_set && sevenUser.emote_set.emotes) {
-            sevenUser.emote_set.emotes.forEach(e => {
-                sevenTV[e.name.toLowerCase()] = `https://cdn.7tv.app/emote/${e.id}/1x.webp`;
-            });
-        }
-    } catch {}
+    const emotes = {};
 
-    // FFZ Global
-    const ffzGlobal = await fetch("https://api.frankerfacez.com/v1/set/global").then(r => r.json());
-    ffz = {};
-    for (const set of Object.values(ffzGlobal.sets)) {
-        set.emoticons.forEach(e => {
-            ffz[e.name.toLowerCase()] = e.urls["1"] ? `https:${e.urls["1"]}` : null;
+    // 7TV
+    if (seventv && seventv.emote_set && seventv.emote_set.emotes) {
+        seventv.emote_set.emotes.forEach(e => {
+            emotes[e.name] = `https://cdn.7tv.app/emote/${e.id}/3x.webp`;
         });
     }
 
-    // FFZ Channel
-    try {
-        const ffzChannel = await fetch(`https://api.frankerfacez.com/v1/room/${channel}`).then(r => r.json());
-        for (const set of Object.values(ffzChannel.sets)) {
-            set.emoticons.forEach(e => {
-                ffz[e.name.toLowerCase()] = e.urls["1"] ? `https:${e.urls["1"]}` : null;
-            });
-        }
-    } catch {}
-}
-
-/* ---------------------------------------------------
-    LOAD CHATTERINO-STYLE BADGES
---------------------------------------------------- */
-
-async function loadBadges(channel) {
-    badgesCache = {};
-
-    try {
-        const sevenUser = await fetch(`https://7tv.io/v3/users/twitch/${channel}`).then(r => r.json());
-        if (sevenUser.badges) {
-            sevenUser.badges.forEach(b => {
-                badgesCache[b.user_id] = b.badge ? b.badge.urls["1x"] : null;
-            });
-        }
-    } catch {}
-
-    // FFZ user badges
-    try {
-        const ffzRoom = await fetch(`https://api.frankerfacez.com/v1/room/${channel}`).then(r => r.json());
-        if (ffzRoom.room && ffzRoom.room.moderator_badge) {
-            badgesCache["mod"] = `https:${ffzRoom.room.moderator_badge}`;
-        }
-    } catch {}
-}
-
-/* ---------------------------------------------------
-    EMOTE + BADGE RENDERING
---------------------------------------------------- */
-
-function renderMessage(msg) {
-    if (!msg.message || typeof msg.message !== "string") {
-        return ""; // ignore system messages with no text
+    // BTTV
+    if (bttv && bttv.channelEmotes) {
+        bttv.channelEmotes.forEach(e => {
+            emotes[e.code] = `https://cdn.betterttv.net/emote/${e.id}/3x`;
+        });
+    }
+    if (bttv && bttv.sharedEmotes) {
+        bttv.sharedEmotes.forEach(e => {
+            emotes[e.code] = `https://cdn.betterttv.net/emote/${e.id}/3x`;
+        });
     }
 
-    let text = msg.message;
+    // FFZ
+    if (ffz && ffz.sets) {
+        Object.values(ffz.sets).forEach(set => {
+            set.emoticons.forEach(e => {
+                emotes[e.name] = e.urls["4"] || e.urls["2"];
+            });
+        });
+    }
 
-    const parts = text.split(" ").map(word => {
-        const lower = word.toLowerCase();
-
-        if (sevenTV[lower]) {
-            return `<img class="emote" src="${sevenTV[lower]}" class="emote">`;
-        }
-
-        if (ffz[lower]) {
-            return `<img class="emote" src="${ffz[lower]}" class="emote">`;
-        }
-
-        return word;
-    });
-
-    return parts.join(" ");
+    return emotes;
 }
 
+// ----------------------------------
+// Render emotes inside messages
+// ----------------------------------
+function renderEmotes(text, emoteMap) {
+    let result = text;
+
+    for (const [name, url] of Object.entries(emoteMap)) {
+        const regex = new RegExp(`\\b${name}\\b`, "g");
+        result = result.replace(regex, `<img class="emote" src="${url}" />`);
+    }
+
+    return result;
+}
+
+// ----------------------------------
+// Render badges
+// ----------------------------------
+function renderBadges(badges) {
+    if (!badges) return "";
+
+    return badges.map(b => `
+        <img class="badge" src="${b.url}" title="${b.name}" />
+    `).join("");
+}
+
+// ----------------------------------
+// Render chat logs to the page
+// ----------------------------------
+function renderChat(logs, emotes) {
+    const chat = document.getElementById("chat");
+    chat.innerHTML = "";
+
+    logs.forEach(msg => {
+        const text = renderEmotes(msg.message, emotes);
+        const badgeHTML = renderBadges(msg.badges);
+
+        chat.innerHTML += `
+            <div class="chat-message">
+                <div class="chat-user">
+                    ${badgeHTML}
+                    <span class="username">${msg.username}:</span>
+                </div>
+                <div class="message-text">${text}</div>
+            </div>
+        `;
+    });
+}
+
+// ----------------------------------
+// Main Button
+// ----------------------------------
+document.getElementById("loadLogs").addEventListener("click", async () => {
+    const channel = document.getElementById("channel").value.toLowerCase();
+    const username = document.getElementById("username").value.toLowerCase();
+
+    if (!channel) return alert("Enter a channel");
+
+    const logs = await loadLogs(channel, username);
+    const emotes = await loadEmotes(channel);
+
+    if (!logs) {
+        return alert("No logs found for that channel/user.");
+    }
+
+    renderChat(logs, emotes);
+});
