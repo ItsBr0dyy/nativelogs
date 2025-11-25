@@ -1,27 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Twitch Chat Logs Viewer</title>
-    <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Twitch Chat Logs</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<header>
-    <h1>Twitch Chat Logs</h1>
-    <div class="top-controls">
-        <input id="channel" placeholder="Channel (ex: itsbr0dyy)">
-        <button onclick="loadLogs()">Load Logs</button>
-    </div>
-</header>
+<div id="container">
+    <h1>Twitch Chat Logs Viewer</h1>
 
-<main>
-    <div id="logs" class="log-box">
-        <p class="placeholder">Enter a channel to view chat logs.</p>
+    <div id="search">
+        <input type="text" id="channel" placeholder="Channel (ex: xqc)" />
+        <input type="text" id="username" placeholder="User (optional)" />
+        <button id="loadLogs">Load Logs</button>
     </div>
-</main>
 
-<script src="script.js"></script>
+    <div id="chat"></div>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
